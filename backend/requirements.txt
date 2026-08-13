@@ -1,0 +1,70 @@
+# SENTRA CORE — Backend dependencies
+#
+# Verified in a clean Python 3.12 virtualenv (2026-07): `pip install -r requirements.txt`
+# installs with zero conflicts (`pip check` passes), and `import main` succeeds end-to-end.
+# Versions below are floors, not ceilings — pip will fetch the latest release satisfying
+# each constraint unless a specific compatibility issue is noted.
+#
+# REMOVED vs. earlier versions of this file (confirmed unused via AST-based import scan
+# of every .py file in backend/ — not just a grep):
+#   - aiofiles          — not imported anywhere in the codebase
+#   - pydantic-settings — not imported anywhere; nothing uses pydantic's BaseSettings
+#
+# COMPATIBILITY NOTE — yara-python and Python version:
+#   yara-python (latest: 4.5.4) ships prebuilt wheels for CPython 3.9-3.13 on
+#   Windows/macOS/Linux. There is currently NO prebuilt wheel for Python 3.14 yet.
+#   On Python 3.14, pip falls back to a source build, which requires a C++ toolchain
+#   (on Windows: "Desktop development with C++" from the Visual Studio Build Tools).
+#   The environment marker on the yara-python line below tells pip to skip it
+#   entirely on 3.14 rather than attempting — and failing — that source build.
+#
+# IMPORTANT — a single failing package aborts the WHOLE install, not just itself:
+#   If any one line in this file fails to build (as yara-python did on 3.14
+#   before the marker below was in place), `pip install -r requirements.txt`
+#   aborts as a unit — NONE of the other packages get installed either, even
+#   though their wheels resolved and downloaded fine moments earlier. If you
+#   ever see ModuleNotFoundError for something totally unrelated (psutil,
+#   fastapi, etc.) right after a build failure earlier in the same log, this
+#   is almost always why: re-run the full `pip install -r requirements.txt`
+#   after fixing whatever failed, don't just `pip install` the missing piece
+#   by hand — see the WARNING below for why that shortcut can bite you too.
+#
+# WARNING — do not `pip install dotenv` to "fix" a missing python-dotenv:
+#   `dotenv` and `python-dotenv` are two different, unrelated PyPI packages
+#   that both install a top-level module literally named `dotenv` — installing
+#   both lets one silently overwrite the other's files on disk, and whichever
+#   "wins" determines what `from dotenv import load_dotenv` actually imports.
+#   The package this project needs is `python-dotenv` (already listed below).
+#   If you've accidentally installed the wrong one: `pip uninstall dotenv -y`,
+#   then `pip install --force-reinstall python-dotenv`.
+
+# Core API
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+websockets>=13.0
+
+# Env config
+python-dotenv>=1.0.1
+
+# System monitoring
+psutil>=6.0.0
+
+# HTTP / networking (used directly, and by every threat-intel provider client)
+requests>=2.32.0
+
+# Data validation (FastAPI's request/response models)
+pydantic>=2.9.0
+
+# PDF reports
+reportlab>=4.2.0
+
+# Scheduled scans
+apscheduler>=3.10.4
+
+# Filesystem auto-scan
+watchdog>=4.0.0
+
+# YARA scanning - see compatibility note above re: Python 3.14. Skipped
+# entirely on 3.14 via the marker below; the app degrades gracefully
+# without it (YARA matching disabled, everything else still works).
+yara-python>=4.5.0; python_version < "3.14"

@@ -1,0 +1,38 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sentra-ingress
+  namespace: sentra
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "10"
+    # Uncomment to enable TLS termination via cert-manager:
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx    # use 'traefik' if using Traefik ingress controller
+  rules:
+    - host: sentra.yourdomain.com    # replace with your domain
+      http:
+        paths:
+          # API traffic → backend
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: sentra-backend
+                port:
+                  number: 8000
+          # Everything else → frontend SPA
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: sentra-frontend
+                port:
+                  number: 80
+
+  # Uncomment for TLS:
+  # tls:
+  #   - hosts:
+  #       - sentra.yourdomain.com
+  #     secretName: sentra-tls

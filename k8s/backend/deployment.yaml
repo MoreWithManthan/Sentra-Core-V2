@@ -1,0 +1,105 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: yara-rules-pvc
+  namespace: sentra
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sentra-backend
+  namespace: sentra
+  labels:
+    app: sentra-backend
+    version: v2.3.0
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sentra-backend
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0     # zero-downtime deploys
+  template:
+    metadata:
+      labels:
+        app: sentra-backend
+        version: v2.3.0
+    spec:
+      # Never run as root
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+
+      containers:
+        - name: backend
+          image: sentra-backend:latest   # replace with your registry path
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+              protocol: TCP
+
+          envFrom:
+            - configMapRef:
+                name: sentra-backend-config
+
+          env:
+            - name: VT_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: sentra-secrets
+                  key: VT_API_KEY
+            # AlienVault OTX — free key, high/uncapped quota (Phase 1 addition)
+            - name: OTX_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: sentra-secrets
+                  key: OTX_API_KEY
+            # AbuseIPDB — free key, 1,000 requests/day (Phase 1 addition)
+            - name: ABUSEIPDB_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: sentra-secrets
+                  key: ABUSEIPDB_API_KEY
+            # MalwareBazaar and URLhaus need no key — no env var required.
+
+          volumeMounts:
+            - name: yara-rules
+              mountPath: /app/engine/rules
+
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"
+
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 8000
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+      volumes:
+        - name: yara-rules
+          persistentVolumeClaim:
+            claimName: yara-rules-pvc

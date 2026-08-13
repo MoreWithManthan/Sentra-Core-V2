@@ -1,0 +1,47 @@
+# ── Stage 1: dependency builder ───────────────────────────────────────────────
+FROM python:3.11-slim AS builder
+
+WORKDIR /build
+
+# Install build tools (needed for psutil / yara-python native extensions)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        gcc \
+        libssl-dev \
+        libffi-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY backend/requirements.txt .
+RUN pip install --upgrade pip \
+ && pip install --prefix=/install --no-cache-dir -r requirements.txt
+
+
+# ── Stage 2: lean runtime image ───────────────────────────────────────────────
+FROM python:3.11-slim AS runtime
+
+# Non-root user for security
+RUN groupadd -r sentra && useradd -r -g sentra sentra
+
+WORKDIR /app
+
+# Copy installed packages from builder stage
+COPY --from=builder /install /usr/local
+
+# Copy application code
+COPY backend/ ./
+
+# Pre-create rules directory with correct permissions
+RUN mkdir -p engine/rules && chown -R sentra:sentra /app
+
+USER sentra
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"
+
+ENV API_HOST=0.0.0.0 \
+    API_PORT=8000 \
+    LOG_LEVEL=INFO \
+    RELOAD=false
+
+CMD ["python", "main.py"]

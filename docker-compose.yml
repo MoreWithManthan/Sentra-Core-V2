@@ -1,0 +1,64 @@
+version: "3.9"
+
+# ── SENTRA CORE — local Docker Compose ───────────────────────────────────────
+#
+# Usage:
+#   docker compose up --build          # first run
+#   docker compose up                  # subsequent runs
+#   docker compose down -v             # stop + remove volumes
+#
+# Env vars: copy .env.example → .env and fill in VT_API_KEY, OTX_API_KEY,
+# ABUSEIPDB_API_KEY etc. MalwareBazaar and URLhaus need no key.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── FastAPI backend ─────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: sentra-backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      API_HOST: "0.0.0.0"
+      API_PORT: "8000"
+      FRONTEND_URL: "http://localhost"
+      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+      VT_API_KEY: "${VT_API_KEY:-}"
+      OTX_API_KEY: "${OTX_API_KEY:-}"
+      ABUSEIPDB_API_KEY: "${ABUSEIPDB_API_KEY:-}"
+      RULES_PATH: "/app/engine/rules/active_threats.yar"
+    volumes:
+      # Persist downloaded YARA rules between restarts
+      - yara_rules:/app/engine/rules
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # ── React / Nginx frontend ──────────────────────────────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: sentra-frontend
+    restart: unless-stopped
+    environment:
+      BACKEND_HOST: "backend"   # service name = internal DNS in Compose network
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+# ── Named volumes ─────────────────────────────────────────────────────────────
+volumes:
+  yara_rules:
+    name: sentra_yara_rules
