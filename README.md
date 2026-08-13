@@ -26,7 +26,7 @@ Sentra Core is a **local-first** cybersecurity and maintenance platform. It runs
 
 **It is not a cloud SaaS product.** No file content ever leaves your machine. Only SHA-256 hashes are sent to external APIs, never raw bytes.
 
-> Built as a research and engineering project at **Chitkara University, CSOET** — with a real use case in mind: making cybersecurity accessible to people who don't know what a threat actor is.
+> Built as a research and engineering project under the guidance of **Mr. Johnny Krogsboll** — with a real use case in mind: making cybersecurity accessible to people who don't know what a threat actor is.
 
 ---
 
@@ -474,6 +474,6 @@ Chitkara University, CSOET — Solan, Himachal Pradesh, India
 
 <div align="center">
 
-*Sentra Core — because your grandparent's PC deserves better than a slow machine and a missed threat.*
+*Sentra Core — because your PC deserves better than a slow machine and a missed threat.*
 
 </div>
